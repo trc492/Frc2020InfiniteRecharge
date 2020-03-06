@@ -3,18 +3,21 @@ package trclib.simulator;
 import trclib.TrcDriveBase;
 import trclib.TrcOdometrySensor;
 import trclib.TrcUtil;
+import trclib.TrcWarpSpace;
+import trclib.TrcWaypoint;
 
 public class SimulatedHolonomicDrivebase extends TrcDriveBase
 {
-    private final double maxVel;
-    private final double maxAccel;
-    private final double maxRotVel;
-    private final double maxRotAccel;
+    public final double maxVel;
+    public final double maxAccel;
+    public final double maxRotVel;
+    public final double maxRotAccel;
     private double xVel, yVel, rotVel;
     private double newXVel;
     private double newYVel;
     private double newRotVel;
     private Double lastTime;
+    private double steerVel = 1000;
 
     public SimulatedHolonomicDrivebase(double maxVel, double maxAccel, double maxRotVel, double maxRotAccel)
     {
@@ -29,10 +32,13 @@ public class SimulatedHolonomicDrivebase extends TrcDriveBase
     protected Odometry getOdometryDelta(TrcOdometrySensor.Odometry[] prevOdometries,
         TrcOdometrySensor.Odometry[] currOdometries)
     {
-        double currTime = TrcUtil.getCurrentTime();
+        double currTime = TrcUtil.getCurrentTimeNanos() / 1e9;
         double dt = lastTime == null ? 0 : currTime - lastTime;
         lastTime = currTime;
-        update(dt);
+        if (dt > 0)
+        {
+            update(dt);
+        }
         Odometry o = new Odometry();
         o.position.x = xVel * dt;
         o.position.y = yVel * dt;
@@ -59,9 +65,25 @@ public class SimulatedHolonomicDrivebase extends TrcDriveBase
 
     public void update(double dt)
     {
-        xVel = rampRate(xVel, newXVel, maxAccel, dt);
-        yVel = rampRate(yVel, newYVel, maxAccel, dt);
         rotVel = rampRate(rotVel, newRotVel, maxRotAccel, dt);
+        double vel = TrcUtil.magnitude(xVel, yVel);
+        double targetVel = TrcUtil.magnitude(newXVel, newYVel);
+        double newVel = rampRate(vel, targetVel, maxAccel, dt);
+
+        double theta = Math.toDegrees(Math.atan2(xVel, yVel));
+        if (xVel == 0 && yVel == 0)
+        {
+            theta = 0;
+        }
+        double targetTheta = Math.toDegrees(Math.atan2(newXVel, newYVel));
+        if (newXVel == 0 && newYVel == 0)
+        {
+            targetTheta = theta;
+        }
+        targetTheta = TrcWarpSpace.getOptimizedTarget(targetTheta, theta, 360);
+        double newTheta = rampRate(theta, targetTheta, steerVel, dt);
+        xVel = Math.sin(Math.toRadians(newTheta)) * newVel;
+        yVel = Math.cos(Math.toRadians(newTheta)) * newVel;
     }
 
     private double rampRate(double currVal, double newVal, double maxRate, double dt)
@@ -88,7 +110,8 @@ public class SimulatedHolonomicDrivebase extends TrcDriveBase
 
     private double[] addNoise(double x, double y)
     {
-        if (x == 0 && y == 0) return new double[2];
+        if (x == 0 && y == 0)
+            return new double[2];
         double theta = Math.atan2(x, y);
         theta += (Math.random() - 0.5) * 2 * Math.toRadians(10);
         double mag = TrcUtil.magnitude(x, y);
@@ -99,6 +122,13 @@ public class SimulatedHolonomicDrivebase extends TrcDriveBase
     @Override
     protected void holonomicDrive(String owner, double x, double y, double rotation, boolean inverted, double gyroAngle)
     {
+        double mag = TrcUtil.magnitude(x, y);
+        if (mag > 1)
+        {
+            x /= mag;
+            y /= mag;
+        }
+        rotation = TrcUtil.clipRange(rotation);
         if (inverted)
         {
             x = -x;
@@ -113,9 +143,9 @@ public class SimulatedHolonomicDrivebase extends TrcDriveBase
             x = x1;
             y = y1;
         }
-        double[] noised = addNoise(x, y);
-        x = noised[0];
-        y = noised[1];
+        //        double[] noised = addNoise(x, y);
+        //        x = noised[0];
+        //        y = noised[1];
         newXVel = x * maxVel;
         newYVel = y * maxVel;
         newRotVel = rotation * maxRotVel;

@@ -20,13 +20,14 @@ public abstract class PathFollowingTestBase
     @Before
     public void setup()
     {
-        driveBase = new SimulatedHolonomicDrivebase(100, 200, 6, 10);
+        driveBase = new SimulatedHolonomicDrivebase(100, 300, 6, 10);
         driveBase.setOdometryScales(1, 1, 1.0 / 15);
         driveBase.setOdometryEnabled(true);
         driveBase.setFieldPosition(new TrcPose2D());
         s = new Simulator(RobotInfo.FIELD_WIDTH, RobotInfo.FIELD_LENGTH, 2, 30, driveBase);
         tolerance = 2;
         turnTolerance = 3;
+        TrcUtil.recordModeStartTime();
     }
 
     @After

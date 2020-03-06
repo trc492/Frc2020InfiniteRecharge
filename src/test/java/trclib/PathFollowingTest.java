@@ -30,6 +30,7 @@ public class PathFollowingTest extends PathFollowingTestBase
         purePursuit.setMoveOutputLimit(0.6);
     }
 
+    /*
     @Test
     public void pidDriveTest()
     {
@@ -55,11 +56,13 @@ public class PathFollowingTest extends PathFollowingTestBase
         assertTimeout(event, 4000);
         assertPosition(new TrcPose2D(), new TrcPose2D());
     }
+     */
 
     @Test
     public void purePursuitTest()
     {
-        TrcPose2D[] poses = new TrcPose2D[] { new TrcPose2D(0, 0), new TrcPose2D(40, 40, 90), new TrcPose2D(40, 100, 90) };
+        TrcPose2D[] poses = new TrcPose2D[] { new TrcPose2D(0, 0), new TrcPose2D(40, 40, 90),
+            new TrcPose2D(40, 100, 90) };
         TrcPath path = new TrcPath(Arrays.stream(poses).map(p -> new TrcWaypoint(p, null)).toArray(TrcWaypoint[]::new));
         path = path.trapezoidVelocity(100, 200);
         s.addPath(path);
@@ -67,6 +70,34 @@ public class PathFollowingTest extends PathFollowingTestBase
 
         TrcEvent event = new TrcEvent("");
         TrcPose2D ref = driveBase.getFieldPosition();
+        purePursuit.start(path, event, 0);
+
+        assertTimeout(event, 5000);
+
+        TrcPose2D end = poses[poses.length - 1];
+        assertPosition(driveBase.getFieldPosition().relativeTo(ref), end);
+    }
+
+    @Test
+    public void purePursuitV2Test()
+    {
+        TrcPose2D[] poses = new TrcPose2D[] { new TrcPose2D(0, 0), new TrcPose2D(40, 40, 90),
+            new TrcPose2D(40, 100, 90) };
+        TrcPath path = new TrcPath(Arrays.stream(poses).map(p -> new TrcWaypoint(p, null)).toArray(TrcWaypoint[]::new));
+        path = path.trapezoidVelocity(driveBase.maxVel, 0.7 * driveBase.maxAccel);
+        //        path.getWaypoint(0).velocity = 20;
+        path.getWaypoint(path.getSize() - 2).acceleration = 0;
+        path.inferTimeSteps();
+        s.addPath(path);
+        s.start();
+
+        TrcEvent event = new TrcEvent("");
+        TrcPose2D ref = driveBase.getFieldPosition();
+
+        TrcHolonomicPurePursuitDriveV2 purePursuit = new TrcHolonomicPurePursuitDriveV2("", driveBase, 12, tolerance,
+            turnTolerance, 1, new TrcPidController.PidCoefficients(0.03, 0, 0.01),
+            new TrcPidController.PidCoefficients(0, 5, 0, 1 / driveBase.maxVel), 0.7 / driveBase.maxAccel);
+        //        purePursuit.setMoveOutputLimit(0.6);
         purePursuit.start(path, event, 0);
 
         assertTimeout(event, 5000);
