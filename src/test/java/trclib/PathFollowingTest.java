@@ -96,7 +96,7 @@ public class PathFollowingTest extends PathFollowingTestBase
 
         TrcHolonomicPurePursuitDriveV2 purePursuit = new TrcHolonomicPurePursuitDriveV2("", driveBase, 12, tolerance,
             turnTolerance, 1, new TrcPidController.PidCoefficients(0.03, 0, 0.01),
-            new TrcPidController.PidCoefficients(0, 5, 0, 1 / driveBase.maxVel), 0.7 / driveBase.maxAccel);
+            new TrcPidController.PidCoefficients(0, 5, 0, 1 / driveBase.maxVel), 1 / driveBase.maxAccel);
         //        purePursuit.setMoveOutputLimit(0.6);
         purePursuit.start(path, event, 0);
 
