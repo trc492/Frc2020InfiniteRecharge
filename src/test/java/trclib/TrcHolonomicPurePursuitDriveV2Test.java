@@ -44,11 +44,11 @@ public class TrcHolonomicPurePursuitDriveV2Test
         TrcPath path = new TrcPath(Arrays.stream(poses).map(p -> new TrcWaypoint(p, null)).toArray(TrcWaypoint[]::new));
         path = path.trapezoidVelocity(100, 200);
         purePursuit.start(path);
-        assertEquals(new TrcPose2D(0, 0), purePursuit.getClosestPoint(new TrcPose2D()).getPositionPose());
-        assertEquals(new TrcPose2D(0, 20), purePursuit.getClosestPoint(new TrcPose2D(5, 20)).getPositionPose());
-        assertEquals(new TrcPose2D(0, 35), purePursuit.getClosestPoint(new TrcPose2D(5, 35)).getPositionPose());
-        assertEquals(new TrcPose2D(0, 0), purePursuit.getClosestPoint(new TrcPose2D(-5, -10)).getPositionPose());
-        assertEquals(new TrcPose2D(5, 40), purePursuit.getClosestPoint(new TrcPose2D(5, 38)).getPositionPose());
-        assertEquals(new TrcPose2D(40, 40), purePursuit.getClosestPoint(new TrcPose2D(50, 38)).getPositionPose());
+        assertEquals(new TrcPose2D(0, 0), purePursuit.getTargetPointDistParameterized(new TrcPose2D()).getPositionPose());
+        assertEquals(new TrcPose2D(0, 20), purePursuit.getTargetPointDistParameterized(new TrcPose2D(5, 20)).getPositionPose());
+        assertEquals(new TrcPose2D(0, 35), purePursuit.getTargetPointDistParameterized(new TrcPose2D(5, 35)).getPositionPose());
+        assertEquals(new TrcPose2D(0, 0), purePursuit.getTargetPointDistParameterized(new TrcPose2D(-5, -10)).getPositionPose());
+        assertEquals(new TrcPose2D(5, 40), purePursuit.getTargetPointDistParameterized(new TrcPose2D(5, 38)).getPositionPose());
+        assertEquals(new TrcPose2D(40, 40), purePursuit.getTargetPointDistParameterized(new TrcPose2D(50, 38)).getPositionPose());
     }
 }

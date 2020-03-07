@@ -84,9 +84,9 @@ public class PathFollowingTest extends PathFollowingTestBase
         TrcPose2D[] poses = new TrcPose2D[] { new TrcPose2D(0, 0), new TrcPose2D(40, 40, 90),
             new TrcPose2D(40, 100, 90) };
         TrcPath path = new TrcPath(Arrays.stream(poses).map(p -> new TrcWaypoint(p, null)).toArray(TrcWaypoint[]::new));
-        path = path.trapezoidVelocity(driveBase.maxVel, 0.7 * driveBase.maxAccel);
-        //        path.getWaypoint(0).velocity = 20;
-        path.getWaypoint(path.getSize() - 2).acceleration = 0;
+        path = path.trapezoidVelocity(0.8*driveBase.maxVel, 0.7 * driveBase.maxAccel);
+//        path.getWaypoint(0).velocity = 20;
+        //        path.getWaypoint(path.getSize() - 2).acceleration = 0;
         path.inferTimeSteps();
         s.addPath(path);
         s.start();
@@ -96,7 +96,7 @@ public class PathFollowingTest extends PathFollowingTestBase
 
         TrcHolonomicPurePursuitDriveV2 purePursuit = new TrcHolonomicPurePursuitDriveV2("", driveBase, 12, tolerance,
             turnTolerance, 1, new TrcPidController.PidCoefficients(0.03, 0, 0.01),
-            new TrcPidController.PidCoefficients(0, 5, 0, 1 / driveBase.maxVel), 1 / driveBase.maxAccel);
+            new TrcPidController.PidCoefficients(0, 5, 0, 1 / driveBase.maxVel), 0.1 / driveBase.maxAccel);
         //        purePursuit.setMoveOutputLimit(0.6);
         purePursuit.start(path, event, 0);
 

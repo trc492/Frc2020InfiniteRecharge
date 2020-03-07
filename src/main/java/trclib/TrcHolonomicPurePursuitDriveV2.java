@@ -49,6 +49,7 @@ import org.apache.commons.math3.linear.RealVector;
  */
 public class TrcHolonomicPurePursuitDriveV2
 {
+    private static final boolean timeParameterized = true;
     private static final boolean debugEnabled = true;
 
     private final String instanceName;
@@ -68,12 +69,13 @@ public class TrcHolonomicPurePursuitDriveV2
     private double moveOutputLimit = Double.POSITIVE_INFINITY;
     private double rotOutputLimit = Double.POSITIVE_INFINITY;
     private double accelFF; // acceleration feedforward
+    private double startTime;
 
     public TrcHolonomicPurePursuitDriveV2(String instanceName, TrcDriveBase driveBase, double followingDistance,
         double posTolerance, double velTolerance, TrcPidController.PidCoefficients velPidCoeff, double accelFF)
     {
-        this(instanceName, driveBase, followingDistance, posTolerance, 180, velTolerance, new TrcPidController.PidCoefficients(0),
-            velPidCoeff, accelFF);
+        this(instanceName, driveBase, followingDistance, posTolerance, 180, velTolerance,
+            new TrcPidController.PidCoefficients(0), velPidCoeff, accelFF);
     }   //TrcHolonomicPurePursuitDrive
 
     public TrcHolonomicPurePursuitDriveV2(String instanceName, TrcDriveBase driveBase, double followingDistance,
@@ -98,7 +100,8 @@ public class TrcHolonomicPurePursuitDriveV2
 
         this.turnPidCtrl = new TrcPidController(instanceName + ".turnPid", turnPidCoeff, turnTolerance,
             driveBase::getHeading);
-        this.velPidCtrl = new TrcPidController(instanceName + ".velPid", velPidCoeff, velTolerance, this::getVelocityInput);
+        this.velPidCtrl = new TrcPidController(instanceName + ".velPid", velPidCoeff, velTolerance,
+            this::getVelocityInput);
 
         turnPidCtrl.setAbsoluteSetPoint(true);
         velPidCtrl.setAbsoluteSetPoint(true);
@@ -231,7 +234,8 @@ public class TrcHolonomicPurePursuitDriveV2
         this.onFinishedEvent = onFinishedEvent;
 
         this.path = path;
-        timedOutTime = timeout == 0.0 ? Double.POSITIVE_INFINITY : TrcUtil.getCurrentTime() + timeout;
+        startTime = TrcUtil.getCurrentTime();
+        timedOutTime = timeout == 0.0 ? Double.POSITIVE_INFINITY : startTime + timeout;
         pathIndex = 1;
         startHeading = driveBase.getHeading();
 
@@ -283,18 +287,20 @@ public class TrcHolonomicPurePursuitDriveV2
     {
         TrcPose2D pose = driveBase.getPositionRelativeTo(referencePose, false);
         TrcWaypoint followingPoint = getFollowingPoint(pose);
-        TrcWaypoint closestPoint = getClosestPoint(pose);
+        TrcWaypoint targetPoint = timeParameterized ?
+            getTargetPointTimeParameterized(TrcUtil.getCurrentTime() - startTime) :
+            getTargetPointDistParameterized(pose);
 
-        double targetVel = closestPoint.velocity;
+        double targetVel = targetPoint.velocity;
         velPidCtrl.setTarget(targetVel);
         // Only follow heading if we're not maintaining heading
-        turnPidCtrl.setTarget(warpSpace.getOptimizedTarget(closestPoint.heading, pose.angle));
+        turnPidCtrl.setTarget(warpSpace.getOptimizedTarget(targetPoint.heading, pose.angle));
 
         double turnPower = turnPidCtrl.getOutput();
         double velPower = velPidCtrl.getOutput();
         turnPower = TrcUtil.clipRange(turnPower, -rotOutputLimit, rotOutputLimit);
 
-        double r = velPower + accelFF * closestPoint.acceleration;
+        double r = velPower + accelFF * targetPoint.acceleration;
         r = TrcUtil.clipRange(r, 0, moveOutputLimit);
         double theta = Math.toDegrees(Math.atan2(followingPoint.x - pose.x, followingPoint.y - pose.y));
 
@@ -302,10 +308,10 @@ public class TrcHolonomicPurePursuitDriveV2
 
         if (debugEnabled)
         {
-//            TrcDbgTrace.getGlobalTracer().traceInfo("TrcHolonomicPurePursuitDriveV2.driveTask",
-//                "[%.3f] pos=%s, followingPoint=%s, closestPoint=%s, vel=%.2f, targetVel=%.2f, targetAccel=%.2f, pathIndex=%d, r,theta=(%.2f,%.2f)",
-//                TrcUtil.getModeElapsedTime(), pose, followingPoint.getPositionPose(), closestPoint.getPositionPose(),
-//                velocity, targetVel, closestPoint.acceleration, pathIndex, r, theta);
+            //            TrcDbgTrace.getGlobalTracer().traceInfo("TrcHolonomicPurePursuitDriveV2.driveTask",
+            //                "[%.3f] pos=%s, followingPoint=%s, targetPoint=%s, vel=%.2f, targetVel=%.2f, targetAccel=%.2f, pathIndex=%d, r,theta=(%.2f,%.2f)",
+            //                TrcUtil.getModeElapsedTime(), pose, followingPoint.getPositionPose(), targetPoint.getPositionPose(),
+            //                velocity, targetVel, targetPoint.acceleration, pathIndex, r, theta);
             System.out.printf("%.3f, %.2f, %.2f\n", TrcUtil.getModeElapsedTime(), velocity, targetVel);
         }
 
@@ -388,7 +394,34 @@ public class TrcHolonomicPurePursuitDriveV2
         }
     }   //interpolatePoints
 
-    TrcWaypoint getClosestPoint(TrcPose2D robotPose)
+    TrcWaypoint getTargetPointTimeParameterized(double elapsedTime)
+    {
+        for (int i = 0; i < path.getSize() - 1; i++)
+        {
+            TrcWaypoint from = path.getWaypoint(i);
+            if (elapsedTime < from.timeStep)
+            {
+                TrcWaypoint to = path.getWaypoint(i + 1);
+                double w = elapsedTime / from.timeStep;
+                double velocity = from.velocity + elapsedTime * from.acceleration;
+                double acceleration = from.acceleration;
+                double jerk = from.jerk;
+                double heading = (1 - w) * from.heading + w * to.heading;
+                double displacement = TrcUtil.average(from.velocity, velocity) * elapsedTime;
+                double theta = Math.atan2(to.x - from.x, to.y - from.y);
+                double x = from.x + Math.sin(theta) * displacement;
+                double y = from.y + Math.cos(theta) * displacement;
+                return new TrcWaypoint(from.timeStep - elapsedTime, x, y, 0, velocity, acceleration, jerk, heading);
+            }
+            else
+            {
+                elapsedTime -= from.timeStep;
+            }
+        }
+        return path.getLastWaypoint();
+    }
+
+    TrcWaypoint getTargetPointDistParameterized(TrcPose2D robotPose)
     {
         RealVector robotPos = robotPose.toPosVector();
         double closestDist = Double.MAX_VALUE;
