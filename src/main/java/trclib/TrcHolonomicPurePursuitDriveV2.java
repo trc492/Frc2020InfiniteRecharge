@@ -49,7 +49,6 @@ import org.apache.commons.math3.linear.RealVector;
  */
 public class TrcHolonomicPurePursuitDriveV2
 {
-    private static final boolean timeParameterized = true;
     private static final boolean debugEnabled = true;
 
     private final String instanceName;
@@ -69,7 +68,6 @@ public class TrcHolonomicPurePursuitDriveV2
     private double moveOutputLimit = Double.POSITIVE_INFINITY;
     private double rotOutputLimit = Double.POSITIVE_INFINITY;
     private double accelFF; // acceleration feedforward
-    private double startTime;
 
     public TrcHolonomicPurePursuitDriveV2(String instanceName, TrcDriveBase driveBase, double followingDistance,
         double posTolerance, double velTolerance, TrcPidController.PidCoefficients velPidCoeff, double accelFF)
@@ -234,8 +232,7 @@ public class TrcHolonomicPurePursuitDriveV2
         this.onFinishedEvent = onFinishedEvent;
 
         this.path = path;
-        startTime = TrcUtil.getCurrentTime();
-        timedOutTime = timeout == 0.0 ? Double.POSITIVE_INFINITY : startTime + timeout;
+        timedOutTime = timeout == 0.0 ? Double.POSITIVE_INFINITY : TrcUtil.getCurrentTime() + timeout;
         pathIndex = 1;
         startHeading = driveBase.getHeading();
 
@@ -287,9 +284,7 @@ public class TrcHolonomicPurePursuitDriveV2
     {
         TrcPose2D pose = driveBase.getPositionRelativeTo(referencePose, false);
         TrcWaypoint followingPoint = getFollowingPoint(pose);
-        TrcWaypoint targetPoint = timeParameterized ?
-            getTargetPointTimeParameterized(TrcUtil.getCurrentTime() - startTime) :
-            getTargetPointDistParameterized(pose);
+        TrcWaypoint targetPoint = getTargetPointDistParameterized(pose);
 
         double targetVel = targetPoint.velocity;
         velPidCtrl.setTarget(targetVel);
@@ -394,33 +389,6 @@ public class TrcHolonomicPurePursuitDriveV2
         }
     }   //interpolatePoints
 
-    TrcWaypoint getTargetPointTimeParameterized(double elapsedTime)
-    {
-        for (int i = 0; i < path.getSize() - 1; i++)
-        {
-            TrcWaypoint from = path.getWaypoint(i);
-            if (elapsedTime < from.timeStep)
-            {
-                TrcWaypoint to = path.getWaypoint(i + 1);
-                double w = elapsedTime / from.timeStep;
-                double velocity = from.velocity + elapsedTime * from.acceleration;
-                double acceleration = from.acceleration;
-                double jerk = from.jerk;
-                double heading = (1 - w) * from.heading + w * to.heading;
-                double displacement = TrcUtil.average(from.velocity, velocity) * elapsedTime;
-                double theta = Math.atan2(to.x - from.x, to.y - from.y);
-                double x = from.x + Math.sin(theta) * displacement;
-                double y = from.y + Math.cos(theta) * displacement;
-                return new TrcWaypoint(from.timeStep - elapsedTime, x, y, 0, velocity, acceleration, jerk, heading);
-            }
-            else
-            {
-                elapsedTime -= from.timeStep;
-            }
-        }
-        return path.getLastWaypoint();
-    }
-
     TrcWaypoint getTargetPointDistParameterized(TrcPose2D robotPose)
     {
         RealVector robotPos = robotPose.toPosVector();
@@ -446,7 +414,6 @@ public class TrcHolonomicPurePursuitDriveV2
 
     TrcWaypoint getFollowingPoint(TrcPose2D robotPose)
     {
-        // TODO: 99% sure this is correct. verify on actual robot, not simulation
         TrcWaypoint last = path.getLastWaypoint();
         if (last.getPositionPose().distanceTo(robotPose) < followingDistance)
         {
@@ -481,6 +448,5 @@ public class TrcHolonomicPurePursuitDriveV2
         }
         return closestPoint;
     }   //getFollowingPoint
-
 }   //class TrcPurePursuitDrive
 

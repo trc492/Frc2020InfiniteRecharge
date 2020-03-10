@@ -407,6 +407,22 @@ public class TrcPath
         return length;
     }   //getArcLength
 
+    public void inferAccelerations()
+    {
+        for (int i = 0; i < waypoints.length - 1; i++)
+        {
+            TrcWaypoint point = waypoints[i];
+            TrcWaypoint next = waypoints[i + 1];
+            double displacement = point.distanceTo(next);
+            // Area of trapezoid: (v1+v2)/2 * t = d
+            // t = d / ((v1+v2)/2)
+            double t = displacement / TrcUtil.average(point.velocity, next.velocity);
+            point.acceleration = (next.velocity - point.velocity) / t;
+        }
+        // Assume last waypoint has 0 acceleration
+        waypoints[waypoints.length - 1].acceleration = 0;
+    }
+
     /**
      * Use velocity and position data to infer the timesteps of the waypoint.
      */
