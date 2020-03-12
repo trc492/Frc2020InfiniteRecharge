@@ -79,13 +79,13 @@ public class FrcSwervePathFollower
         this.maxRotAccel = maxRotAccel;
         this.maxWheelSpeed = maxWheelSpeed;
         this.unitsPerMeter = unitsPerMeter;
-        double halfWidth = driveBase.getWheelBaseWidth() / 2;
-        double halfLength = driveBase.getWheelBaseLength() / 2;
+        double halfWidth = TrcUtil.METERS_PER_INCH * driveBase.getWheelBaseWidth() / 2;
+        double halfLength = TrcUtil.METERS_PER_INCH * driveBase.getWheelBaseLength() / 2;
         // width is x for us, but -y for wpilib
         // length is y for us, but x for wpilib
-        kinematics = new SwerveDriveKinematics(new Translation2d(-halfLength, -halfWidth),
+        kinematics = new SwerveDriveKinematics(new Translation2d(halfLength, halfWidth),
             new Translation2d(halfLength, -halfWidth), new Translation2d(-halfLength, halfWidth),
-            new Translation2d(halfLength, halfWidth));
+            new Translation2d(-halfLength, -halfWidth));
 
         driveTaskObj = TrcTaskMgr.getInstance().createTask(instanceName + ".driveTaskObj", this::driveTask);
     }
@@ -190,7 +190,7 @@ public class FrcSwervePathFollower
     {
         TrcPose2D pose = driveBase.getFieldPosition();
         // wpilib uses NWU coordinate frame, we use ENU. They use CCW radians, we use CW degrees
-        return new Pose2d(pose.y, -pose.x, Rotation2d.fromDegrees(-pose.angle));
+        return new Pose2d(pose.y / unitsPerMeter, -pose.x / unitsPerMeter, Rotation2d.fromDegrees(-pose.angle));
     }
 
     private void setSwerveStates(SwerveModuleState[] states)

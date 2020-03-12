@@ -30,6 +30,7 @@ import edu.wpi.first.wpilibj.trajectory.TrajectoryConfig;
 import edu.wpi.first.wpilibj.trajectory.TrajectoryGenerator;
 import trclib.TrcPath;
 import trclib.TrcPose2D;
+import trclib.TrcUtil;
 import trclib.TrcWaypoint;
 
 import java.util.Arrays;
@@ -45,7 +46,36 @@ public class FrcPath extends TrcPath
 
     public static Pose2d toWpiPose(TrcPose2D pose)
     {
-        return new Pose2d(pose.y, -pose.x, Rotation2d.fromDegrees(-pose.angle));
+        return new Pose2d(pose.y * TrcUtil.METERS_PER_INCH, -pose.x * TrcUtil.METERS_PER_INCH,
+            Rotation2d.fromDegrees(-pose.angle));
+    }
+
+    public static Trajectory createHolonomicTrajectory(TrcPath path, TrajectoryConfig config)
+    {
+        if (path.getSize() < 2)
+        {
+            throw new IllegalArgumentException("Path must have at least two points!");
+        }
+
+        path = path.clone();
+
+        TrcPose2D start = path.getWaypoint(0).getPositionPose();
+        TrcPose2D next = path.getWaypoint(1).getPositionPose();
+        double startTheta = Math.toDegrees(Math.atan2(next.x - start.x, next.y - start.y));
+
+        TrcPose2D prev = path.getWaypoint(path.getSize() - 2).getPositionPose();
+        TrcPose2D last = path.getLastWaypoint().getPositionPose();
+        double endTheta = Math.toDegrees(Math.atan2(last.x - prev.x, last.y - prev.y));
+
+        double targetHeading = last.angle;
+        path.getWaypoint(0).heading = startTheta;
+        path.getLastWaypoint().heading = endTheta;
+
+        Trajectory trajectory = createTrajectory(path, config, SplineType.CLAMPED_CUBIC);
+        Trajectory.State lastState = trajectory.getStates().get(trajectory.getStates().size() - 1);
+        lastState.poseMeters = new Pose2d(lastState.poseMeters.getTranslation(),
+            Rotation2d.fromDegrees(-targetHeading));
+        return trajectory;
     }
 
     /**
