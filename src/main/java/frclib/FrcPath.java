@@ -50,6 +50,19 @@ public class FrcPath extends TrcPath
             Rotation2d.fromDegrees(-pose.angle));
     }
 
+    /**
+     * Create a {@link Trajectory} from a {@link TrcPath} object. Only the positions are preserved.
+     * The velocities and accelerations will be defined by the {@link TrajectoryConfig}.
+     * The trajectory headings will be modified, since heading refers to the velocity vector direction.
+     * The returned Trajectory will be a {@link FrcHolonomicTrajectory} object, so the last sample will have the target heading as the heading value.
+     * All other heading values refer to velocity direction.
+     *
+     * This is meant for holonomic drivebases, where heading is decoupled from the velocity vector.
+     *
+     * @param path   The TrcPath object to use to create the Trajectory.
+     * @param config This specifies the constraints and configurations to use when making the Trajectory.
+     * @return A Trajectory object with the appropriate constraints.
+     */
     public static Trajectory createHolonomicTrajectory(TrcPath path, TrajectoryConfig config)
     {
         if (path.getSize() < 2)
@@ -72,10 +85,7 @@ public class FrcPath extends TrcPath
         path.getLastWaypoint().heading = endTheta;
 
         Trajectory trajectory = createTrajectory(path, config, SplineType.CLAMPED_CUBIC);
-        Trajectory.State lastState = trajectory.getStates().get(trajectory.getStates().size() - 1);
-        lastState.poseMeters = new Pose2d(lastState.poseMeters.getTranslation(),
-            Rotation2d.fromDegrees(-targetHeading));
-        return trajectory;
+        return new FrcHolonomicTrajectory(trajectory, targetHeading);
     }
 
     /**
