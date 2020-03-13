@@ -52,11 +52,7 @@ public class SimRobot extends TimedRobot
 
         TrcPose2D[] poses = new TrcPose2D[] { new TrcPose2D(0, 0), new TrcPose2D(40, 40), new TrcPose2D(40, 100, -90) };
         TrcPath path = new TrcPath(Arrays.stream(poses).map(p -> new TrcWaypoint(p, null)).toArray(TrcWaypoint[]::new));
-        TrajectoryConfig config = new TrajectoryConfig(0.8 * driveBase.maxVel * TrcUtil.METERS_PER_INCH,
-            300 * TrcUtil.METERS_PER_INCH);
-        config.addConstraint(new SwerveDriveKinematicsConstraint(driveBase.kinematics, driveBase.maxVel));
-        config.addConstraint(new CentripetalAccelerationConstraint(
-            0.4 * driveBase.maxVel * TrcUtil.METERS_PER_INCH * Math.toRadians(RobotInfo.STEER_MAX_VEL)));
+        TrajectoryConfig config = FrcPath.createSwerveConfig(driveBase, 0.8 * driveBase.maxVel, 300, 1000);
         Trajectory trajectory = FrcPath.createHolonomicTrajectory(path, config);
         double t = trajectory.getTotalTimeSeconds();
 

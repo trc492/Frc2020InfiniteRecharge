@@ -20,41 +20,6 @@ import java.util.List;
 
 public class Simulator
 {
-
-    public static void main(String[] args)
-    {
-        SimulatedHolonomicDrivebase driveBase = new SimulatedHolonomicDrivebase(5, 10, 6, 10);
-        driveBase.setOdometryScales(1, 1, 1.0 / 0.5);
-        driveBase.setOdometryEnabled(true);
-        Simulator s = new Simulator(20, 20, 40, 1, driveBase);
-        TrcPose2D[][] poses = new TrcPose2D[][] { { new TrcPose2D(0, 0), null },
-            { new TrcPose2D(2, 2, 90), new TrcPose2D(3, 3) }, { new TrcPose2D(2, 5, 90), null } };
-        TrcPath path = new TrcPath(
-            Arrays.stream(poses).map(p -> new TrcWaypoint(p[0], p[1])).toArray(TrcWaypoint[]::new));
-        s.addPath(path);
-        s.start();
-
-        TrcPidController xPid = new TrcPidController("", new TrcPidController.PidCoefficients(1), 0.1,
-            driveBase::getXPosition);
-        TrcPidController yPid = new TrcPidController("", new TrcPidController.PidCoefficients(1), 0.1,
-            driveBase::getYPosition);
-        TrcPidController rotPid = new TrcPidController("", new TrcPidController.PidCoefficients(0.01, 0, 0.01), 0.1,
-            driveBase::getHeading);
-        TrcPidDrive pidDrive = new TrcPidDrive("", driveBase, xPid, yPid, rotPid);
-        TrcHolonomicPurePursuitDrive pp = new TrcHolonomicPurePursuitDrive("", driveBase, 0.3, 0.05, 3,
-            new TrcPidController.PidCoefficients(1), rotPid.getPidCoefficients(),
-            new TrcPidController.PidCoefficients(0.02, 0, 0, 1 / 5.0));
-        pp.setMoveOutputLimit(0.6);
-        TrcEvent event = new TrcEvent("");
-        pp.start(path, event, 0);
-        s.blockForEvent(event);
-        //        pidDrive.setAbsoluteHeadingTarget(0, event);
-        //        s.blockForEvent(event);
-        //        pidDrive.setRelativeTarget(-2, -2, 0, event);
-        //        s.blockForEvent(event);
-        //        pp.start(path, event, 0);
-    }
-
     private final double xSize;
     private final double ySize;
     private final double scaleFactor;

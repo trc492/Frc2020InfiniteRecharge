@@ -25,11 +25,15 @@ package frclib;
 import edu.wpi.first.wpilibj.geometry.Pose2d;
 import edu.wpi.first.wpilibj.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.geometry.Translation2d;
+import edu.wpi.first.wpilibj.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.wpilibj.trajectory.Trajectory;
 import edu.wpi.first.wpilibj.trajectory.TrajectoryConfig;
 import edu.wpi.first.wpilibj.trajectory.TrajectoryGenerator;
+import edu.wpi.first.wpilibj.trajectory.constraint.CentripetalAccelerationConstraint;
+import edu.wpi.first.wpilibj.trajectory.constraint.SwerveDriveKinematicsConstraint;
 import trclib.TrcPath;
 import trclib.TrcPose2D;
+import trclib.TrcSwerveDriveBase;
 import trclib.TrcUtil;
 import trclib.TrcWaypoint;
 
@@ -51,12 +55,41 @@ public class FrcPath extends TrcPath
     }
 
     /**
+     * Create a {@link TrajectoryConfig} object to use for path creation. This config is specific to swerve drives.
+     * It applies a max velocity and acceleration to the path to create a trapezoidal velocity profile.
+     * It also uses the maximum steer velocity (rotation rate) of the swerve modules to limit the centripetal acceleration of the path.
+     * This protects against the robot's velocity vector changing direction too fast for the modules to follow.
+     * It also constrains the path such that none of the wheels will exceed the maximum wheel velocity.
+     *
+     * @param driveBase   The drivebase used for the path creation.
+     * @param maxVel      The maximum velocity of the robot, in inches per second.
+     * @param maxAccel    The maximum acceleration of the robot, in inches per second per second.
+     * @param maxSteerVel The maximum steer velocity of the robot, in degrees per second.
+     * @return A TrajectoryConfig to be used for trajectory configuration.
+     */
+    public static TrajectoryConfig createSwerveConfig(TrcSwerveDriveBase driveBase, double maxVel, double maxAccel,
+        double maxSteerVel)
+    {
+        double maxVelMeters = maxVel * TrcUtil.METERS_PER_INCH;
+        double maxAccelMeters = maxAccel * TrcUtil.METERS_PER_INCH;
+        double halfWidth = TrcUtil.METERS_PER_INCH * driveBase.getWheelBaseWidth() / 2;
+        double halfLength = TrcUtil.METERS_PER_INCH * driveBase.getWheelBaseLength() / 2;
+        SwerveDriveKinematics kinematics = new SwerveDriveKinematics(new Translation2d(halfLength, halfWidth),
+            new Translation2d(halfLength, -halfWidth), new Translation2d(-halfLength, halfWidth),
+            new Translation2d(-halfLength, -halfWidth));
+        TrajectoryConfig config = new TrajectoryConfig(maxVelMeters, maxAccelMeters);
+        config.addConstraint(new CentripetalAccelerationConstraint(0.6 * maxVelMeters * Math.toRadians(maxSteerVel)));
+        config.addConstraint(new SwerveDriveKinematicsConstraint(kinematics, maxVelMeters));
+        return config;
+    }
+
+    /**
      * Create a {@link Trajectory} from a {@link TrcPath} object. Only the positions are preserved.
      * The velocities and accelerations will be defined by the {@link TrajectoryConfig}.
      * The trajectory headings will be modified, since heading refers to the velocity vector direction.
      * The returned Trajectory will be a {@link FrcHolonomicTrajectory} object, so the last sample will have the target heading as the heading value.
      * All other heading values refer to velocity direction.
-     *
+     * <p>
      * This is meant for holonomic drivebases, where heading is decoupled from the velocity vector.
      *
      * @param path   The TrcPath object to use to create the Trajectory.
